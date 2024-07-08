@@ -7,7 +7,6 @@ import lightning as L
 
 from pytorch_lightning import LightningModule
 from PL_DeepSTARR import *
-from seq_evals_improved import *
 
 samples_file_path = 'samples.npz'
 deepSTARR_data = 'DeepSTARR_data.h5'
