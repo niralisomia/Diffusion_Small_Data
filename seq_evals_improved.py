@@ -70,3 +70,30 @@ def calculate_frechet_distance(mu1, sigma1, mu2, sigma2, eps=1e-6):
     tr_covmean = np.trace(covmean)
 
     return diff.dot(diff) + np.trace(sigma1) + np.trace(sigma2) - 2 * tr_covmean
+
+#############################################################################################
+# Functional similarity: Predictive distribution shift
+#############################################################################################
+'''
+prerequisite:
+    - x_synthetic_tensor (generated seqeunces as a tensor with shapes (N,L,A)) 
+    - x_test_tensor (observed sequences as a tensor with shapes (N,L,A))
+
+example:
+    activity1 = oracle.predict(x_synthetic)
+    activity2 = oracle.predict(x_test)
+    mse = conditional_generation_fidelity(activity1, activity2)
+'''
+
+def predictive_distribution_shift(x_synthetic_tensor, x_test_tensor):
+    
+    #encode bases using 0,1,2,3 (eliminate a dimension)
+    base_indices_test = np.argmax(x_test_tensor.detach().numpy(), axis=1)
+    base_indices_syn = np.argmax(x_synthetic_tensor.detach().numpy(), axis=1)
+
+    #flatten the arrays (now they are one dimension)
+    base_indices_test_f = base_indices_test.flatten()
+    base_indices_syn_f = base_indices_syn.flatten()
+
+    #return ks test statistic
+    return scipy.stats.ks_2samp(base_indices_syn_f, base_indices_test_f).statistic
