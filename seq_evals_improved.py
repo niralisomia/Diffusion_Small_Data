@@ -99,7 +99,7 @@ def predictive_distribution_shift(x_synthetic_tensor, x_test_tensor):
     #return ks test statistic
     return scipy.stats.ks_2samp(base_indices_syn_f, base_indices_test_f).statistic
 
-    #############################################################################################
+#############################################################################################
 # Sequence similarity: k-mer spectrum shift
 #############################################################################################
 '''
@@ -138,7 +138,7 @@ def compute_kmer_spectra(
     # convert one hot to A,C,G,T
     seq_list = []
 
-    for index in tqdm(range(len(X))): #for loop is what actually converts a list of one-hot encoded sequences into ACGT
+    for index in tqdm.tqdm(range(len(X))): #for loop is what actually converts a list of one-hot encoded sequences into ACGT
 
         seq = X[index]
 

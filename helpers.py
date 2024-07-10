@@ -78,3 +78,18 @@ def get_penultimate_embeddings(model, x):
 
     return extractor.embedding
 
+#preparing data to put into kmer_statistics function
+def prepare_deepstarr_for_kmer(x_test_tensor, x_synthetic_tensor):
+    return x_test_tensor.detach().numpy().transpose(0,2,1), x_synthetic_tensor.detach().numpy().transpose(0,2,1)
+
+#helper function to write in data to a .h5 file
+def write_to_h5(filename, data_dict):
+    """
+    Write multiple columns of data to an HDF5 file.
+    
+    :param filename: Name of the HDF5 file to create
+    :param data_dict: Dictionary where keys are column names and values are data arrays
+    """
+    with h5py.File(filename, 'w') as hf:
+        for column_name, data in data_dict.items():
+            hf.create_dataset(column_name, data=data)
