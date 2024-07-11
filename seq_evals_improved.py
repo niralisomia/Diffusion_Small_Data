@@ -1,7 +1,32 @@
 import numpy as np
-import scipy
+from numpy import load
+import h5py
+import pandas as pd
+import torch
+import lightning as L
+from pytorch_lightning import LightningModule
 from scipy import linalg
+import scipy
 from tqdm import tqdm
+from itertools import product
+import tensorflow as tf
+from tensorflow import keras
+from six.moves import cPickle
+from sklearn.metrics import mean_squared_error
+import gc
+from Bio import motifs
+import os
+from pymemesuite import fimo
+from pymemesuite.common import MotifFile, Sequence
+from pymemesuite import fimo
+from pymemesuite.fimo import FIMO
+from Bio import SeqIO
+import glob
+import tempfile
+import Bio
+
+
+
 
 #############################################################################################
 # Functional similarity: Conditional generation fidelity
@@ -100,6 +125,43 @@ def predictive_distribution_shift(x_synthetic_tensor, x_test_tensor):
     return scipy.stats.ks_2samp(base_indices_syn_f, base_indices_test_f).statistic
 
 #############################################################################################
+# Sequence similarity: Percent identity
+#############################################################################################
+'''
+prerequisite:
+    - x_synthetic (generated seqeunces with shapes (N,L,A)) 
+    - x_test (observed sequences with shapes (N,L,A))
+
+example:
+    percent_identity = calculate_cross_sequence_identity_batch(x_synthetic, x_test, batch_size)
+    max_percent_identity = np.max(percent_identity, axis=1)
+    global_max_percent_identity = np.max(max_percent_identity)
+'''
+
+def calculate_cross_sequence_identity_batch(X_train, X_test, batch_size):
+    num_train, seq_length, alphabet_size = X_train.shape    
+    num_test = X_test.shape[0]
+    
+    # Reshape the matrices for dot product computation
+    X_train = np.reshape(X_train, [-1, seq_length * alphabet_size])
+    X_test = np.reshape(X_test, [-1, seq_length * alphabet_size])
+    
+    # Initialize the matrix to store the results
+    seq_identity = np.zeros((num_train, num_test)).astype(np.int8)
+    
+    # Process the training data in batches
+    for start_idx in tqdm(range(0, num_train, batch_size)):
+        end_idx = min(start_idx + batch_size, num_train)
+        
+        # Compute the dot product for this batch
+        batch_result = np.dot(X_train[start_idx:end_idx], X_test.T) 
+        
+        # Store the result in the corresponding slice of the output matrix
+        seq_identity[start_idx:end_idx, :] = batch_result.astype(np.int8)
+    
+    return seq_identity
+
+#############################################################################################
 # Sequence similarity: k-mer spectrum shift
 #############################################################################################
 '''
@@ -138,7 +200,7 @@ def compute_kmer_spectra(
     # convert one hot to A,C,G,T
     seq_list = []
 
-    for index in tqdm.tqdm(range(len(X))): #for loop is what actually converts a list of one-hot encoded sequences into ACGT
+    for index in tqdm(range(len(X))): #for loop is what actually converts a list of one-hot encoded sequences into ACGT
 
         seq = X[index]
 
@@ -225,7 +287,7 @@ class kmer_featurization:
         numbering = (digits * self.multiplyBy).sum()
 
         return numbering
-    
+
 #############################################################################################
 # Sequence similarity: Discriminatability
 #############################################################################################
@@ -246,7 +308,7 @@ def prep_data_for_classification(x_test_tensor, x_synthetic_tensor):
     x_train = np.vstack([x_test_tensor.detach().numpy(), x_synthetic_tensor.detach().numpy()])
     y_train = np.vstack([np.ones((x_test_tensor.shape[0],1)), np.zeros((x_synthetic_tensor.shape[0],1))])
     x_train = np.transpose(x_train, (0, 2, 1)) 
-    
+
     #write x_train and y_train into dict to create .h5 file
     data_dict = {
         'x_train': x_train,
@@ -254,3 +316,54 @@ def prep_data_for_classification(x_test_tensor, x_synthetic_tensor):
     }
 
     return data_dict
+
+#############################################################################################
+# Compositional similarity: Motif enrichment
+#############################################################################################
+'''
+prerequisite:
+    - x_synthetic (generated seqeunces with shapes (N,L,A)) 
+    - x_test (observed sequences with shapes (N,L,A))
+    - JASPAR_file (Datasbase for motif search)
+
+example:
+	x_synthetic = one_hot_to_seq(x_synthetic)
+	x_test = one_hot_to_seq(x_test)
+	create_fasta_file(x_synthetic,'sythetic_seq.txt')
+	create_fasta_file(x_test,'test_seq.txt')
+	motif_count = motif_count('test_seq.txt', JASPAR_file)
+	motif_count_2 = motif_count('synthetic_seq.txt', JASPAR_file)
+	pr = enrich_pr(motif_count,motif_count_2)
+'''
+
+def motif_count(path, path_to_database):
+    '''
+    path is the filepath to the list of sequences in fasta format
+
+    returns a dictionary containing the motif counts for all the sequences
+    '''
+
+    motif_ids = []
+    occurrence = []
+
+    sequences = [
+        Sequence(str(record.seq), name=record.id.encode())
+        for record in Bio.SeqIO.parse(path, "fasta")
+        ]
+    
+    fimo = FIMO() 
+    with MotifFile("JASPAR2024_CORE_non-redundant_pfms_meme.txt") as motif_file:
+        for motif in motif_file: 
+            pattern = fimo.score_motif(motif, sequences, motif_file.background)
+            motif_ids.append(motif.accession.decode())
+            occurrence.append(len(pattern.matched_elements))
+    
+    motif_counts = dict(zip(motif_ids,occurrence))
+
+    return motif_counts
+
+def enrich_pr(count_1,count_2):
+	c_1 = list(count_1.values())
+	c_2 = list(count_2.values())
+
+	return scipy.stats.pearsonr(c_1,c_2)
