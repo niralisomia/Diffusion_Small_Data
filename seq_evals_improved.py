@@ -225,3 +225,32 @@ class kmer_featurization:
         numbering = (digits * self.multiplyBy).sum()
 
         return numbering
+    
+#############################################################################################
+# Sequence similarity: Discriminatability
+#############################################################################################
+'''
+prerequisite:
+    - x_synthetic (generated seqeunces with shapes (N,L,A)) 
+    - x_train (observed training sequences with shapes (N,L,A))
+    - classification model 
+
+example:
+    data_dict = prep_data_for_classification(x_train, x_synthetic)
+    write_to_h5('Discriminatability.h5', data_dict)
+
+    run train_deepstarr_ood_score.py on elzar
+'''
+
+def prep_data_for_classification(x_test_tensor, x_synthetic_tensor):
+    x_train = np.vstack([x_test_tensor.detach().numpy(), x_synthetic_tensor.detach().numpy()])
+    y_train = np.vstack([np.ones((x_test_tensor.shape[0],1)), np.zeros((x_synthetic_tensor.shape[0],1))])
+    x_train = np.transpose(x_train, (0, 2, 1)) 
+    
+    #write x_train and y_train into dict to create .h5 file
+    data_dict = {
+        'x_train': x_train,
+        'y_train': y_train,
+    }
+
+    return data_dict
