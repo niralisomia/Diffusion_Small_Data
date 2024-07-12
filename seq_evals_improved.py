@@ -367,3 +367,61 @@ def enrich_pr(count_1,count_2):
 	c_2 = list(count_2.values())
 
 	return scipy.stats.pearsonr(c_1,c_2)
+
+#############################################################################################
+# Compositional similarity: Motif co-occurrence
+#############################################################################################
+'''
+prerequisite:
+    - x_synthetic (generated seqeunces with shapes (N,L,A)) 
+    - x_test (observed sequences with shapes (N,L,A))
+    - JASPAR_file (Datasbase for motif search)
+
+example:
+
+	motif_matrix_test = make_occurrence_matrix('test_seq.txt')
+    motif_matrix_synthetic = make_occurrence_matrix('synthetic_seq.txt')
+    C = np.cov(motif_matrix_test)
+    C2 = np.cov(motif_matrix_synthetic)
+    distance = frobenius_norm(C, C2)
+'''
+
+def make_occurrence_matrix(path):
+    '''
+    path is the filepath to the list of sequences in fasta format
+
+    returns a matrix containing the motif counts for all the sequences
+    '''
+
+    motif_ids = []
+    occurrence = []
+
+    sequences = [
+        Sequence(str(record.seq), name=record.id.encode())
+        for record in Bio.SeqIO.parse(path, "fasta")
+        ]
+
+    
+    fimo = FIMO() 
+    #matrix with m rows and n columns
+    occurrence_matrix = []
+    for sequence in sequences:
+        sequence = [sequence]
+        occurrence = []
+        motif_ids = []
+        with MotifFile("JASPAR2024_CORE_non-redundant_pfms_meme.txt") as motif_file:
+            for motif in motif_file: 
+                pattern = fimo.score_motif(motif, sequence, motif_file.background)
+                motif_ids.append(motif.accession.decode())
+                occurrence.append(len(pattern.matched_elements))
+        occurrence_matrix.append(occurrence)
+
+    return occurrence_matrix
+
+
+def covariance_matrix(x):
+    return np.cov(x)
+
+
+def frobenius_norm(cov, cov2):
+    return np.sqrt(np.sum((cov - cov2)**2))
