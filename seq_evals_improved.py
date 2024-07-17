@@ -437,7 +437,7 @@ def gradient_shap(x_seq, model, class_index=0, trim_end=None):
     x_seq = np.swapaxes(x_seq,1,2)
     N,A,L = x_seq.shape
     score_cache = []
-    for i,x in tqdm.tqdm(enumerate(x_seq)):
+    for i,x in tqdm(enumerate(x_seq)):
         # process sequences so that they are right shape (based on insertions)
         x = np.expand_dims(x, axis=0)
         x_tensor = torch.tensor(x, requires_grad=True, dtype=torch.float32)

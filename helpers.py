@@ -105,7 +105,7 @@ def one_hot_to_seq(
     # convert one hot to A,C,G,T
     seq_list = []
 
-    for index in tqdm.tqdm(range(len(X))): #for loop is what actually converts a list of one-hot encoded sequences into ACGT
+    for index in tqdm(range(len(X))): #for loop is what actually converts a list of one-hot encoded sequences into ACGT
 
         seq = X[index]
 
