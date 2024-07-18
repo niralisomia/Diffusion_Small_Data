@@ -433,6 +433,16 @@ def frobenius_norm(cov, cov2):
 #############################################################################################
 # Compositional similarity: Attribution analysis
 #############################################################################################
+'''
+prerequisite:
+    - x_seq (generated or observed seqeunces with shapes (N,L,A)) 
+    - oracle model 
+
+example:
+    shap_score = gradient_shap(x_seq, oracle, task_idx)
+    plot_attribution_map(x_seq, shap_score)
+'''
+
 def gradient_shap(x_seq, model, class_index=0, trim_end=None):
     x_seq = np.swapaxes(x_seq,1,2)
     N,A,L = x_seq.shape
@@ -504,6 +514,21 @@ def plot_attribution_map(x_seq, shap_score, alphabet='ACGT', figsize=(20,1)):
 #############################################################################################
 # Compositional similarity: Attribution consistency
 #############################################################################################
+
+'''
+prerequisite:
+    - x_seq (generated or observed seqeunces with shapes (N,L,A)) 
+    - oracle model 
+
+example:
+    shap_score = gradient_shap(x_seq, oracle, task_idx)
+    attributino_map = process_attribution_map(shap_score)
+    mask = unit_mask(x_seq)
+    phi_1_s, phi_2_s, r_s = spherical_coordinates_process_2_trad([attribution_map], x_seq, mask, radius_count_cutoff)
+    LIM, box_length, box_volume, n_bins, n_bins_half = initialize_integration_2(0.1)
+	entropic_information = calculate_entropy_2(phi_1_s, phi_2_s, r_s, n_bins, 0.1, box_volume, prior_range=3)
+'''
+
 def process_attribution_map(saliency_map_raw, k=6):
     saliency_map_raw = saliency_map_raw - np.mean(saliency_map_raw, axis=-1, keepdims=True) # gradient correction
     saliency_map_raw = saliency_map_raw / np.sum(np.sqrt(np.sum(np.square(saliency_map_raw), axis=-1, keepdims=True)), axis=-2, keepdims=True) #normaliz
@@ -689,4 +714,80 @@ def Empiciral_box_pdf_func_2 (phi_1, phi_2, r_s, n_bins, box_length, box_volume)
     return Empirical_box_pdf * correction * 1 , Empirical_box_count *correction , Empirical_box_count_plain #, correction2
 
 
-   
+#############################################################################################
+# Informativeness: Added information
+#############################################################################################
+'''
+prerequisite:
+    - x_synthetic (generated seqeunces with shapes (N,L,A)) 
+    - y_synthetic (activities for sequences)
+    - x_train (observed sequences with shapes (N,L,A))
+    - y_train (activities for sequences)
+    - x_valid (observed sequences with shapes (N,L,A))
+    - y_valid (activities for sequences)
+    - x_test (observed sequences with shapes (N,L,A))
+    - y_test (activities for sequences)
+
+example:
+    downsample = 0.25
+    N = x_train.shape[0]
+    num_downsample = int(N*downsample)
+    x_train = np.vstack([x_train[:num_downsample], x_synthetic])
+    y_train = np.vstack([y_train[:num_downsample], y_synthetic])
+
+    # train model using x_train, y_train
+
+    # evaluate model on x_test, y_test
+'''
+
+
+#############################################################################################
+# Conditional sampling diversity: sequence diversity
+#############################################################################################
+'''
+prerequisite:
+    - x_synthetic (generated seqeunces with shapes (N,L,A)) 
+
+example:
+    max_percent_identity = sequence diversity(x_synthetic)
+'''
+
+def sequence_diversity(x, batch_size):
+    percent_identity = calculate_cross_sequence_identity_batch(x, x, batch_size)
+    val = []
+    for i in range(len(percent_identity)):
+        sort = np.sort(percent_identity[i])[::-1] 
+        val.append(sort[1]) # <-- take second highest percent identity due to match w/ self
+    return np.array(val)
+
+
+
+#############################################################################################
+# Conditional sampling diversity: mechanistic diversity
+#############################################################################################
+'''
+prerequisite:
+    - x_synthetic (generated seqeunces with shapes (N,L,A)) 
+    - y_test (observed functional activity used for conditional generation)
+    - oracle model
+
+example:
+    shap_scores = gradient_shap(x_seq, oracle, task_idx)
+    max_self_similarity = mechanistic_diversity(shap_scores)
+    
+'''
+
+def mechanistic_diversity(attr_scores):
+    N, L, A = attr_scores.shape    
+    
+    # Reshape the matrices for dot product computation
+    attr_scores = np.reshape(attr_scores, [-1, L * A])
+    
+    # Initialize the matrix to store the results
+    max_similarity = []    
+    # Process the training data in batches
+    for i in range(N):
+        val = np.dot(np.expand_dims(attr_scores[i,:], axis=0), attr_scores.T) 
+        max_similarity.append(np.sort(val)[::-1][1])
+    
+    return np.array(max_similarity) 
